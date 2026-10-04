@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>业余天文台观测夜排程</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #151c33;
+    --panel2: #1c2542;
+    --border: #2b3a63;
+    --text: #dbe4ff;
+    --muted: #8fa0c9;
+    --accent: #6ea8ff;
+    --good: #4ade80;
+    --bad: #f87171;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2a52 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  main {
+    display: grid;
+    grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+    gap: 18px;
+    padding: 18px 28px 40px;
+    align-items: start;
+  }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; color: var(--accent); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  input, button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+  }
+  input:focus { outline: 1px solid var(--accent); }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #2450a8; border-color: #3a6fd8; font-weight: 600; }
+  button.primary:hover { background: #2b5cc4; }
+  button.ghost { background: transparent; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 5px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+  td input { width: 100%; padding: 4px 6px; font-size: 13px; }
+  .targets-wrap { overflow-x: auto; }
+  .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .mono { font-family: "Cascadia Code", Consolas, monospace; }
+  .ok-banner { color: var(--good); }
+  .err-banner {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid var(--bad);
+    color: #fecaca;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+  }
+  .summary { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+  .summary b { color: var(--text); }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+  .tag.locked { background: rgba(251, 191, 36, 0.15); color: var(--warn); border: 1px solid var(--warn); }
+  .tag.free { background: rgba(110, 168, 255, 0.12); color: var(--accent); border: 1px solid var(--accent); }
+  .reason-invisible { color: var(--bad); }
+  .reason-capacity { color: var(--warn); }
+  .history-item {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-item .meta { color: var(--muted); font-size: 12px; }
+  .history-item .status-ok { color: var(--good); }
+  .history-item .status-rejected { color: var(--bad); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .del-btn { padding: 2px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔭 业余天文台观测夜排程</h1>
+  <span>UTC 时间窗 · 高度角约束 · 换台间隔 · 优先级优化</span>
+</header>
+<main>
+  <section>
+    <div class="panel">
+      <h2>测站与时间窗（UTC）</h2>
+      <div class="row">
+        <div class="field">
+          <label>纬度（度，-90 ~ 90，北纬为正）</label>
+          <input id="latitude" type="number" step="any" value="40.0">
+        </div>
+        <div class="field">
+          <label>经度（度，-180 ~ 180，东经为正）</label>
+          <input id="longitude" type="number" step="any" value="116.4">
+        </div>
+        <div class="field">
+          <label>换台时间（非负整数分钟）</label>
+          <input id="slewMinutes" type="number" min="0" step="1" value="5">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="field">
+          <label>时间窗开始（UTC）</label>
+          <input id="windowStart" type="datetime-local" step="60">
+        </div>
+        <div class="field">
+          <label>时间窗结束（UTC，最长 12 小时）</label>
+          <input id="windowEnd" type="datetime-local" step="60">
+        </div>
+      </div>
+      <div class="hint">起止时间按 UTC 解释；曝光只在整分钟开始，时间窗最长 12 小时。</div>
+    </div>
+
+    <div class="panel">
+      <h2>观测目标（至多 16 个）</h2>
+      <div class="targets-wrap">
+        <table id="targetsTable">
+          <thead>
+            <tr>
+              <th>编号</th><th>赤经°</th><th>赤纬°</th><th>曝光(分)</th>
+              <th>最低高度°</th><th>优先级</th><th>锁定开始(UTC, 可空)</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button id="addTargetBtn" class="ghost">＋ 添加目标</button>
+        <button id="sampleBtn" class="ghost">载入示例</button>
+        <button id="clearBtn" class="ghost">清空</button>
+      </div>
+      <div class="hint">锁定开始为可选项：填写后该目标被锁定在该整分钟开始；锁定项不可见或互相冲突时整次拒绝。</div>
+    </div>
+
+    <div class="actions">
+      <button id="submitBtn" class="primary">生成排程</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel" id="resultPanel">
+      <h2>排程结果</h2>
+      <div id="errorBox"></div>
+      <div id="resultBox"><div class="hint">提交后在此展示 UTC 排程与未入选原因。</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>历史记录（SQLite）</h2>
+      <div class="actions" style="margin-top:0;margin-bottom:10px">
+        <button id="reloadHistoryBtn" class="ghost">刷新</button>
+      </div>
+      <div id="historyBox"><div class="hint">暂无记录</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+const MAX_TARGETS = 16;
+const tbody = document.querySelector('#targetsTable tbody');
+
+function toUtcIso(localValue) {
+  if (!localValue) return null;
+  // datetime-local: "YYYY-MM-DDTHH:mm" 或带秒；一律按 UTC 解释
+  return localValue.length === 16 ? localValue + ':00Z' : localValue + 'Z';
+}
+
+function fmtUtcInputValue(date) {
+  // 生成 datetime-local 可用的 UTC 字符串 "YYYY-MM-DDTHH:mm"
+  const p = (x) => String(x).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${p(date.getUTCMonth() + 1)}-${p(date.getUTCDate())}T${p(date.getUTCHours())}:${p(date.getUTCMinutes())}`;
+}
+
+function addTargetRow(t) {
+  if (tbody.rows.length >= MAX_TARGETS) {
+    alert(`目标数量至多为 ${MAX_TARGETS} 个`);
+    return;
+  }
+  const tr = tbody.insertRow();
+  const val = (v) => (v === undefined || v === null ? '' : v);
+  tr.innerHTML = `
+    <td><input data-k="id" type="text" value="${val(t && t.id)}" placeholder="如 M31" style="min-width:70px"></td>
+    <td><input data-k="ra" type="number" step="any" min="0" max="359.999" value="${val(t && t.ra)}" style="min-width:80px"></td>
+    <td><input data-k="dec" type="number" step="any" min="-90" max="90" value="${val(t && t.dec)}" style="min-width:80px"></td>
+    <td><input data-k="exposureMinutes" type="number" min="1" step="1" value="${val(t && t.exposureMinutes)}" style="min-width:70px"></td>
+    <td><input data-k="minAltitude" type="number" step="any" min="-90" max="90" value="${val(t && t.minAltitude)}" style="min-width:80px"></td>
+    <td><input data-k="priority" type="number" min="1" step="1" value="${val(t && t.priority)}" style="min-width:60px"></td>
+    <td><input data-k="lockStart" type="datetime-local" step="60" value="${val(t && t.lockStart)}" style="min-width:170px"></td>
+    <td><button class="ghost del-btn" title="删除该行">✕</button></td>
+  `;
+  tr.querySelector('.del-btn').addEventListener('click', () => tr.remove());
+}
+
+function collectPayload() {
+  const targets = [];
+  for (const tr of tbody.rows) {
+    const get = (k) => tr.querySelector(`input[data-k="${k}"]`).value.trim();
+    const t = {
+      id: get('id'),
+      ra: get('ra') === '' ? null : Number(get('ra')),
+      dec: get('dec') === '' ? null : Number(get('dec')),
+      exposureMinutes: get('exposureMinutes') === '' ? null : Number(get('exposureMinutes')),
+      minAltitude: get('minAltitude') === '' ? null : Number(get('minAltitude')),
+      priority: get('priority') === '' ? null : Number(get('priority')),
+    };
+    const lock = get('lockStart');
+    if (lock) t.lockStart = toUtcIso(lock);
+    targets.push(t);
+  }
+  return {
+    latitude: Number(document.getElementById('latitude').value),
+    longitude: Number(document.getElementById('longitude').value),
+    windowStart: toUtcIso(document.getElementById('windowStart').value),
+    windowEnd: toUtcIso(document.getElementById('windowEnd').value),
+    slewMinutes: document.getElementById('slewMinutes').value === '' ? null : Number(document.getElementById('slewMinutes').value),
+    targets,
+  };
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderResult(data) {
+  const box = document.getElementById('resultBox');
+  let html = `
+    <div class="summary">
+      <span>排入目标：<b>${data.scheduledCount}</b></span>
+      <span>优先级总和：<b>${data.totalPriority}</b></span>
+      <span>记录编号：<b>#${data.runId ?? '-'}</b></span>
+    </div>`;
+  if (data.schedule.length === 0) {
+    html += '<div class="hint">时间窗内没有排入任何目标。</div>';
+  } else {
+    html += `<table><thead><tr><th>#</th><th>目标</th><th>开始 (UTC)</th><th>结束 (UTC)</th><th>类型</th><th>优先级</th></tr></thead><tbody>`;
+    data.schedule.forEach((e, i) => {
+      html += `<tr>
+        <td>${i + 1}</td>
+        <td><b>${esc(e.id)}</b></td>
+        <td class="mono">${esc(e.start)}</td>
+        <td class="mono">${esc(e.end)}</td>
+        <td><span class="tag ${e.locked ? 'locked' : 'free'}">${e.locked ? '锁定' : '自由'}</span></td>
+        <td>${e.priority}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  if (data.unscheduled && data.unscheduled.length > 0) {
+    html += `<h2 style="margin-top:14px">未入选目标（${data.unscheduled.length}）</h2>
+      <table><thead><tr><th>目标</th><th>原因</th><th>说明</th></tr></thead><tbody>`;
+    for (const u of data.unscheduled) {
+      const label = u.reason === 'invisible' ? '不可见' : '容量不足';
+      html += `<tr>
+        <td><b>${esc(u.id)}</b></td>
+        <td class="reason-${u.reason}">${label}</td>
+        <td style="color:var(--muted)">${esc(u.message)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+  }
+  box.innerHTML = html;
+}
+
+function renderError(err) {
+  const box = document.getElementById('errorBox');
+  let extra = '';
+  if (err.targets && err.targets.length) {
+    extra = `\n涉及目标：${err.targets.join('、')}`;
+  }
+  box.innerHTML = `<div class="err-banner">✕ 整次排程被拒绝：${esc(err.error || '未知错误')}${esc(extra)}</div>`;
+  document.getElementById('resultBox').innerHTML = '';
+}
+
+async function submit() {
+  document.getElementById('errorBox').innerHTML = '';
+  let resp;
+  try {
+    resp = await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(collectPayload()),
+    });
+  } catch (e) {
+    renderError({ error: '无法连接服务器' });
+    return;
+  }
+  const data = await resp.json();
+  if (!resp.ok || !data.ok) {
+    renderError(data);
+  } else {
+    renderResult(data);
+  }
+  loadHistory();
+}
+
+async function loadHistory() {
+  const box = document.getElementById('historyBox');
+  try {
+    const resp = await fetch('/api/runs');
+    const data = await resp.json();
+    if (!data.runs || data.runs.length === 0) {
+      box.innerHTML = '<div class="hint">暂无记录</div>';
+      return;
+    }
+    box.innerHTML = data.runs.map((r) => `
+      <div class="history-item" data-id="${r.id}">
+        <div><b>#${r.id}</b> <span class="status-${r.status}">${r.status === 'ok' ? '成功' : '被拒绝'}</span></div>
+        <div class="meta">${esc(r.createdAt)} · 目标 ${r.targetCount ?? 0} 个 · ${esc(r.windowStart || '?')} → ${esc(r.windowEnd || '?')}</div>
+      </div>`).join('');
+    box.querySelectorAll('.history-item').forEach((el) => {
+      el.addEventListener('click', () => loadRun(el.dataset.id));
+    });
+  } catch (e) {
+    box.innerHTML = '<div class="hint">历史记录加载失败</div>';
+  }
+}
+
+async function loadRun(id) {
+  const resp = await fetch('/api/runs/' + id);
+  const data = await resp.json();
+  if (!data.ok) return;
+  const run = data.run;
+  if (run.status === 'ok') {
+    document.getElementById('errorBox').innerHTML = '';
+    renderResult({ ...run.result, runId: run.id });
+  } else {
+    renderError(run.result);
+  }
+}
+
+function loadSample() {
+  document.getElementById('latitude').value = 40.0;
+  document.getElementById('longitude').value = 116.4;
+  document.getElementById('slewMinutes').value = 5;
+  const start = new Date();
+  start.setUTCMinutes(0, 0, 0);
+  start.setUTCHours(start.getUTCHours() + 1);
+  const end = new Date(start.getTime() + 8 * 3600 * 1000);
+  document.getElementById('windowStart').value = fmtUtcInputValue(start);
+  document.getElementById('windowEnd').value = fmtUtcInputValue(end);
+  tbody.innerHTML = '';
+  const lock = new Date(start.getTime() + 2 * 3600 * 1000);
+  [
+    { id: 'M31', ra: 10.68, dec: 41.27, exposureMinutes: 40, minAltitude: 25, priority: 8 },
+    { id: 'M42', ra: 83.82, dec: -5.39, exposureMinutes: 30, minAltitude: 20, priority: 6 },
+    { id: 'M45', ra: 56.75, dec: 24.12, exposureMinutes: 25, minAltitude: 30, priority: 5 },
+    { id: 'NGC869', ra: 34.75, dec: 57.13, exposureMinutes: 20, minAltitude: 15, priority: 4 },
+    { id: 'M33', ra: 23.46, dec: 30.66, exposureMinutes: 35, minAltitude: 20, priority: 3 },
+    { id: 'M81', ra: 148.89, dec: 69.07, exposureMinutes: 30, minAltitude: 15, priority: 7, lockStart: fmtUtcInputValue(lock) },
+  ].forEach(addTargetRow);
+}
+
+document.getElementById('addTargetBtn').addEventListener('click', () => addTargetRow());
+document.getElementById('sampleBtn').addEventListener('click', loadSample);
+document.getElementById('clearBtn').addEventListener('click', () => { tbody.innerHTML = ''; });
+document.getElementById('submitBtn').addEventListener('click', submit);
+document.getElementById('reloadHistoryBtn').addEventListener('click', loadHistory);
+
+// 初始：默认时间窗（下一整点起 8 小时）+ 三行空目标
+(function init() {
+  const start = new Date();
+  start.setUTCMinutes(0, 0, 0);
+  start.setUTCHours(start.getUTCHours() + 1);
+  document.getElementById('windowStart').value = fmtUtcInputValue(start);
+  document.getElementById('windowEnd').value = fmtUtcInputValue(new Date(start.getTime() + 8 * 3600 * 1000));
+  addTargetRow(); addTargetRow(); addTargetRow();
+  loadHistory();
+})();
+</script>
+</body>
+</html>

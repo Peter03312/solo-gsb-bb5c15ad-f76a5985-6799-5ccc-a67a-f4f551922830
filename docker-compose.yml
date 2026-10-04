@@ -1,0 +1,16 @@
+services:
+  observatory:
+    build: .
+    image: observatory-night-scheduler
+    container_name: observatory-night-scheduler
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_PATH: /app/data/observatory.db
+    volumes:
+      - observatory-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  observatory-data:

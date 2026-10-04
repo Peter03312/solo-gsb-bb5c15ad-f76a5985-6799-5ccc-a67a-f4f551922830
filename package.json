@@ -1,0 +1,18 @@
+{
+  "name": "observatory-night-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "业余天文台观测夜排程 Web 应用（Node.js + SQLite + 浏览器页面）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
