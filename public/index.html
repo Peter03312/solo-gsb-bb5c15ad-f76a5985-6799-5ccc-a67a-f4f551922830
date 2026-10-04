@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>业余天文台观测夜排程</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🔭 业余天文台观测夜排程</h1>
+    <p class="subtitle">输入观测地、UTC 时间窗（≤12 小时）与目标，自动排出优先级最优的整分钟观测计划</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>① 观测参数</h2>
+      <div class="grid">
+        <label>观测点纬度（度，北纬正）
+          <input type="number" id="latitude" step="any" min="-90" max="90" value="39.9042" />
+        </label>
+        <label>观测点经度（度，东经正）
+          <input type="number" id="longitude" step="any" min="-180" max="180" value="116.4074" />
+        </label>
+        <label>窗口开始（UTC，按 UTC 解释）
+          <input type="datetime-local" id="startUtc" step="60" />
+        </label>
+        <label>窗口结束（UTC，晚于开始且 ≤12 小时）
+          <input type="datetime-local" id="endUtc" step="60" />
+        </label>
+        <label>换台间隔（分钟，非负整数）
+          <input type="number" id="slewMin" step="1" min="0" value="15" />
+        </label>
+      </div>
+      <div id="windowInfo" class="hint"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>② 观测目标（至多 16 个）</h2>
+        <div>
+          <button type="button" id="addTarget" class="btn">＋ 添加目标</button>
+          <button type="button" id="fillDemo" class="btn btn-ghost">载入示例</button>
+          <button type="button" id="clearAll" class="btn btn-ghost">清空</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="targetTable">
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>赤经 RA (°)</th>
+              <th>赤纬 Dec (°)</th>
+              <th>曝光 (分)</th>
+              <th>最低高度角 (°)</th>
+              <th>优先级</th>
+              <th class="lock-col">锁定整分钟</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="targetRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button type="button" id="runBtn" class="btn btn-primary">生成排程</button>
+      <span id="formMsg" class="hint"></span>
+    </section>
+
+    <section id="errorPanel" class="card card-error hidden">
+      <h2>⚠️ 请求被拒绝</h2>
+      <div id="errorList"></div>
+    </section>
+
+    <section id="resultPanel" class="card hidden">
+      <h2>③ UTC 观测排程</h2>
+      <div id="summary" class="summary"></div>
+
+      <h3>时间线</h3>
+      <div id="timeline"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>顺序</th>
+              <th>开始 (UTC)</th>
+              <th>结束 (UTC)</th>
+              <th>目标编号</th>
+              <th>曝光(分)</th>
+              <th>优先级</th>
+              <th>全程最低高度角</th>
+              <th>锁定</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleRows"></tbody>
+        </table>
+      </div>
+
+      <h3>未入选目标</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>目标编号</th><th>原因</th><th>说明</th></tr>
+          </thead>
+          <tbody id="unscheduledRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>所有计算在服务器完成，时间均为 UTC。</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

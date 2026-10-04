@@ -1,0 +1,14 @@
+{
+  "name": "observatory-scheduler",
+  "version": "1.0.0",
+  "description": "业余天文台观测夜排程 Web 应用",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "selftest": "node test/selftest.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0"
+  }
+}
